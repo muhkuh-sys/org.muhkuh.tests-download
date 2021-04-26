@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jonchki-artifact version="1.0">
+	<info group="org.muhkuh.tests"
+	      module="download"
+	      artifact="download"
+	      version="${PROJECT_VERSION}"
+	      vcs-id="${PROJECT_VERSION_VCS}"
+	      extension="zip">
+		<license name="GPL-2.0"/>
+		<author name="Muhkuh team" url="https://github.com/muhkuh-sys" />
+		<description>The download test step retrieves a remote file and passes it as a local file location to other steps.</description>
+	</info>
+	<dependencies>
+		<dependency group="com.github.stevedonovan" module="penlight" artifact="penlight" version="1.7"/>
+		<dependency group="com.github.moteus" module="lua-log" artifact="lua-log" version="0.1"/>
+		<dependency group="com.github.lua-curl" module="lua-curlv3" artifact="lua5.4-lua-curlv3" version="0.3"/>
+		<dependency group="org.muhkuh.lua" module="mhash" artifact="lua5.4-mhash" version="0.9"/>
+	</dependencies>
+	<dependencies>
+		<dependency group="com.github.stevedonovan" module="penlight" artifact="penlight" version="1.7"/>
+		<dependency group="com.github.moteus" module="lua-log" artifact="lua-log" version="0.1"/>
+		<dependency group="com.github.lua-curl" module="lua-curlv3" artifact="lua5.1-lua-curlv3" version="0.3"/>
+		<dependency group="org.muhkuh.lua" module="mhash" artifact="lua5.1-mhash" version="0.9"/>
+	</dependencies>
+</jonchki-artifact>
