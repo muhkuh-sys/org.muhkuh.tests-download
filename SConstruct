@@ -51,7 +51,8 @@ strArtifact = 'download'
 tArcList = atEnv.DEFAULT.ArchiveList('zip')
 
 tArcList.AddFiles('',
-                   'installer/install.lua')
+                  'installer/install.lua',
+                  'installer/install_testcase.lua')
 tArcList.AddFiles('lua/',
                   'lua/test_class_download.lua')
 tArcList.AddFiles('templates/',
