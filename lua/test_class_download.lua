@@ -21,6 +21,12 @@ function TestClassDownload:_init(strTestName, uiTestCase, tLogWriter, strLogLeve
       required(true),
 
     P:P('file', 'The absolute path to the downloaded file.'):
+      output(true),
+
+    P:P('file_sha384', 'The SHA384 sum of the downloaded file.'):
+      output(true),
+
+    P:U32('file_size', 'The size of the downloaded file in bytes.'):
       output(true)
   }
 end
@@ -138,38 +144,38 @@ function TestClassDownload:__check_hash_sum(strLocalFile, strLocalFileHash)
   local mhash = self.mhash
   local pl = self.pl
   local tResult
-  local strError
+  local strMessage
 
   -- Check that both files exist.
   if pl.path.exists(strLocalFile)~=strLocalFile then
-    strError = string.format('The downloaded file "%s" does not exist.', strLocalFile)
+    strMessage = string.format('The downloaded file "%s" does not exist.', strLocalFile)
   elseif pl.path.isfile(strLocalFile)~=true then
-    strError = string.format('The downloaded file "%s" is not a file.', strLocalFile)
+    strMessage = string.format('The downloaded file "%s" is not a file.', strLocalFile)
   elseif pl.path.exists(strLocalFileHash)~=strLocalFileHash then
-    strError = string.format('The downloaded file "%s" does not exist.', strLocalFileHash)
+    strMessage = string.format('The downloaded file "%s" does not exist.', strLocalFileHash)
   elseif pl.path.isfile(strLocalFileHash)~=true then
-    strError = string.format('The downloaded file "%s" is not a file.', strLocalFileHash)
+    strMessage = string.format('The downloaded file "%s" is not a file.', strLocalFileHash)
   else
     -- Read the hash file.
-    local strHashData, strMessage = pl.utils.readfile(strLocalFileHash, false)
+    local strHashData, strError = pl.utils.readfile(strLocalFileHash, false)
     if strHashData==nil then
-      strError = string.format('Failed to read the local hash file "%s": %s', strLocalFileHash, tostring(strMessage))
+      strMessage = string.format('Failed to read the local hash file "%s": %s', strLocalFileHash, tostring(strError))
     else
       -- Extract the file name and the hash.
       local strHashCheckHex, strFileCheck = string.match(pl.stringx.strip(strHashData), '^(%x+)%s+(.+)$')
       if strHashCheckHex==nil then
-        strError = string.format('The hash file "%s" has an invalid format.', strLocalFileHash)
+        strMessage = string.format('The hash file "%s" has an invalid format.', strLocalFileHash)
       else
         local strBasename = pl.path.basename(strLocalFile)
         if strFileCheck~=strBasename then
-          strError = string.format('The hash file does not contain a hash for the file "%s", but for "%s".', strBasename, strFileCheck)
+          strMessage = string.format('The hash file does not contain a hash for the file "%s", but for "%s".', strBasename, strFileCheck)
         else
           local tState = mhash.mhash_state()
           tState:init(mhash.MHASH_SHA384)
           -- Open the file and read it in chunks.
-          local tFile, strMessage = io.open(strLocalFile, 'rb')
+          local tFile, strFileError = io.open(strLocalFile, 'rb')
           if tFile==nil then
-            strError = string.format('Failed to open the file "%s" for reading: %s', strLocalFile, strMessage)
+            strMessage = string.format('Failed to open the file "%s" for reading: %s', strLocalFile, strFileError)
           else
             repeat
               local tChunk = tFile:read(16384)
@@ -190,9 +196,10 @@ function TestClassDownload:__check_hash_sum(strLocalFile, strLocalFileHash)
             local strHashHex = table.concat(aHashHex)
 
             if strHashHex~=strHashCheckHex then
-              strError = string.format('The hash for the downloaded file "%s" does not match.', strLocalFile)
+              strMessage = string.format('The hash for the downloaded file "%s" does not match.', strLocalFile)
             else
               tResult = true
+              strMessage = strHashHex
             end
           end
         end
@@ -200,7 +207,7 @@ function TestClassDownload:__check_hash_sum(strLocalFile, strLocalFileHash)
     end
   end
 
-  return tResult, strError
+  return tResult, strMessage
 end
 
 
@@ -234,10 +241,13 @@ function TestClassDownload:run()
   self:__remove_all_files_except_list(strWorkingFolder, { strLocalFile, strLocalFileHash })
 
   -- If the local file and hash already exist, check the hash sum.
+  local strHash
   if pl.path.exists(strLocalFile)==strLocalFile and pl.path.exists(strLocalFileHash)==strLocalFileHash then
     local tResult, strMessage = self:__check_hash_sum(strLocalFile, strLocalFileHash)
-    -- The hash sum does not match. Remove both files.
-    if tResult~=true then
+    if tResult==true then
+      strHash = strMessage
+    else
+      -- The hash sum does not match. Remove both files.
       tLog.debug('The local file "%s" already exist, but checking the hash failed: %s', strLocalFile, strMessage)
 
       local strMessage
@@ -263,7 +273,9 @@ function TestClassDownload:run()
 
     -- Check the hash sum of the file.
     local tResult, strMessage = self:__check_hash_sum(strLocalFile, strLocalFileHash)
-    if tResult~=true then
+    if tResult==true then
+      strHash = strMessage
+    else
       local strMsg = string.format('Checking the hash for the local file "%s" failed: %s.', strLocalFile, strMessage)
       tLog.error('%s', strMsg)
 
@@ -275,6 +287,8 @@ function TestClassDownload:run()
   end
 
   atParameter['file']:set(strLocalFile)
+  atParameter['file_sha384']:set(strHash)
+  atParameter['file_size']:set(pl.path.attrib(strLocalFile).size)
 
   tLog.info("")
   tLog.info(" #######  ##    ## ")
