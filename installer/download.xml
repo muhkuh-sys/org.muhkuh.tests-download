@@ -11,13 +11,13 @@
 		<description>The download test step retrieves a remote file and passes it as a local file location to other steps.</description>
 	</info>
 	<dependencies>
-		<dependency group="com.github.lunarmodules" module="Penlight" artifact="Penlight" version="1.11"/>
+		<dependency group="com.github.lunarmodules" module="Penlight" artifact="Penlight" version="1"/>
 		<dependency group="com.github.moteus" module="lua-log" artifact="lua-log" version="0.1"/>
 		<dependency group="com.github.lua-curl" module="lua-curlv3" artifact="lua5.4-lua-curlv3" version="0.3"/>
 		<dependency group="org.muhkuh.lua" module="mhash" artifact="lua5.4-mhash" version="0.9"/>
 	</dependencies>
 	<dependencies>
-		<dependency group="com.github.lunarmodules" module="Penlight" artifact="Penlight" version="1.11"/>
+		<dependency group="com.github.lunarmodules" module="Penlight" artifact="Penlight" version="1"/>
 		<dependency group="com.github.moteus" module="lua-log" artifact="lua-log" version="0.1"/>
 		<dependency group="com.github.lua-curl" module="lua-curlv3" artifact="lua5.1-lua-curlv3" version="0.3"/>
 		<dependency group="org.muhkuh.lua" module="mhash" artifact="lua5.1-mhash" version="0.9"/>
