@@ -152,71 +152,105 @@ end
 
 
 
+function TestClassDownload.__get_hash_for_file(strLocalFile, tHashAlgorithm)
+  local strHashHex
+  local strError
+
+  local mhash = require 'mhash'
+  local tState = mhash.mhash_state()
+  tState:init(tHashAlgorithm)
+  -- Open the file and read it in chunks.
+  local tFile, strFileError = io.open(strLocalFile, 'rb')
+  if tFile==nil then
+    strError = string.format('Failed to open the file "%s" for reading: %s', strLocalFile, strFileError)
+  else
+    repeat
+      local tChunk = tFile:read(16384)
+      if tChunk~=nil then
+        tState:hash(tChunk)
+      end
+    until tChunk==nil
+    tFile:close()
+
+    -- Get the binary hash.
+    local strHashBin = tState:hash_end()
+
+    -- Convert the binary hash into a string.
+    local aHashHex = {}
+    for iCnt=1,string.len(strHashBin) do
+      table.insert(aHashHex, string.format("%02x", string.byte(strHashBin, iCnt)))
+    end
+    strHashHex = table.concat(aHashHex)
+  end
+
+  return strHashHex, strError
+end
+
+
+
 function TestClassDownload:__check_hash_sum(strLocalFile, strLocalFileHash)
-  local mhash = self.mhash
-  local pl = self.pl
   local tResult
   local strMessage
 
   -- Check that both files exist.
-  if pl.path.exists(strLocalFile)~=strLocalFile then
+  local path = require 'pl.path'
+  if path.exists(strLocalFile)~=strLocalFile then
     strMessage = string.format('The downloaded file "%s" does not exist.', strLocalFile)
-  elseif pl.path.isfile(strLocalFile)~=true then
+  elseif path.isfile(strLocalFile)~=true then
     strMessage = string.format('The downloaded file "%s" is not a file.', strLocalFile)
-  elseif pl.path.exists(strLocalFileHash)~=strLocalFileHash then
+  elseif path.exists(strLocalFileHash)~=strLocalFileHash then
     strMessage = string.format('The downloaded file "%s" does not exist.', strLocalFileHash)
-  elseif pl.path.isfile(strLocalFileHash)~=true then
+  elseif path.isfile(strLocalFileHash)~=true then
     strMessage = string.format('The downloaded file "%s" is not a file.', strLocalFileHash)
   else
     -- Read the hash file.
-    local strHashData, strError = pl.utils.readfile(strLocalFileHash, false)
+    local utils = require 'pl.utils'
+    local strHashData, strError = utils.readfile(strLocalFileHash, false)
     if strHashData==nil then
       strMessage = string.format('Failed to read the local hash file "%s": %s', strLocalFileHash, tostring(strError))
     else
-      -- Extract the file name and the hash.
-      local strHashCheckHex, strFileCheck = string.match(pl.stringx.strip(strHashData), '^(%x+)%s+(.+)$')
-      if strHashCheckHex==nil then
-        strMessage = string.format('The hash file "%s" has an invalid format.', strLocalFileHash)
+      -- Guess the hash algorithm from the file extension.
+      local strHashExtension = string.lower(path.extension(strLocalFileHash))
+      local mhash = require 'mhash'
+      local atExtensionToHashAlgo = {
+        ['.md5']    = mhash.MHASH_SHA384,
+        ['.sha1']   = mhash.MHASH_SHA1,
+        ['.sha224'] = mhash.MHASH_SHA224,
+        ['.sha256'] = mhash.MHASH_SHA256,
+        ['.sha384'] = mhash.MHASH_SHA384,
+        ['.sha512'] = mhash.MHASH_SHA512
+      }
+      local tHashAlgo = atExtensionToHashAlgo[strHashExtension]
+      if tHashAlgo==nil then
+        strMessage = string.format('Failed to detect the hash algorithm from the extension "%s".', strHashExtension)
       else
-        local strBasename = pl.path.basename(strLocalFile)
-        if strFileCheck~=strBasename then
-          strMessage = string.format(
-            'The hash file does not contain a hash for the file "%s", but for "%s".',
-            strBasename,
-            strFileCheck
-          )
+        -- Get the hash length from the block size.
+        -- The size of the hexdump hash is 2 times the byte size.
+        local sizHashAscii = mhash.get_block_size(tHashAlgo) * 2
+
+        -- Create a match for the hexdump hash of the calculated length.
+        local strReMatch = '^(' .. string.rep('%x', sizHashAscii) .. ')'
+
+        -- Extract the hash.
+        local stringx = require 'pl.stringx'
+        local strPlainHexdumpHash = string.lower(stringx.strip(strHashData))
+        local strRemoteHashHex = string.match(strPlainHexdumpHash, strReMatch)
+        if strRemoteHashHex==nil then
+          strMessage = string.format('The hash file "%s" has an invalid format.', strLocalFileHash)
         else
-          local tState = mhash.mhash_state()
-          tState:init(mhash.MHASH_SHA384)
-          -- Open the file and read it in chunks.
-          local tFile, strFileError = io.open(strLocalFile, 'rb')
-          if tFile==nil then
-            strMessage = string.format('Failed to open the file "%s" for reading: %s', strLocalFile, strFileError)
+          -- Calculate the hash of the local file.
+          local strLocalHashHex, strLocalHashHexError = self.__get_hash_for_file(strLocalFile, tHashAlgo)
+          if strLocalHashHex==nil then
+            strMessage = string.format(
+              'Failed to generate the hast for the local file "%s": %s',
+              strLocalFile,
+              tostring(strLocalHashHexError)
+            )
+          elseif strLocalHashHex~=strRemoteHashHex then
+            strMessage = string.format('The hash for the downloaded file "%s" does not match.', strLocalFile)
           else
-            repeat
-              local tChunk = tFile:read(16384)
-              if tChunk~=nil then
-                tState:hash(tChunk)
-              end
-            until tChunk==nil
-            tFile:close()
-
-            -- Get the binary hash.
-            local strHashBin = tState:hash_end()
-
-            -- Convert the binary hash into a string.
-            local aHashHex = {}
-            for iCnt=1,string.len(strHashBin) do
-              table.insert(aHashHex, string.format("%02x", string.byte(strHashBin, iCnt)))
-            end
-            local strHashHex = table.concat(aHashHex)
-
-            if strHashHex~=strHashCheckHex then
-              strMessage = string.format('The hash for the downloaded file "%s" does not match.', strLocalFile)
-            else
-              tResult = true
-              strMessage = strHashHex
-            end
+            tResult = true
+            strMessage = mhash.get_hash_name(tHashAlgo) .. ':' .. strRemoteHashHex
           end
         end
       end
@@ -243,7 +277,20 @@ function TestClassDownload:run()
 
   -- Set the default URL hash if none was specified.
   if strParameterUrlHash==nil or strParameterUrlHash=='' then
-    strParameterUrlHash = strParameterUrl .. '.sha384'
+    -- Use SHA384 as the default.
+    local strHashExtension = '.sha384'
+    -- Try to guess the hash algorithm based on the URL.
+    local atServerToHash = {
+      -- The nexus V3 server has SHA512 hashes.
+      ['https://nexus.hilscher.local/'] = '.sha512'
+    }
+    for strServerBase, strExt in pairs(atServerToHash) do
+      if string.sub(strParameterUrl, 1, string.len(strServerBase))==strServerBase then
+        strHashExtension = strExt
+        break
+      end
+    end
+    strParameterUrlHash = strParameterUrl .. strHashExtension
   end
 
   -- Create the working folder if it does not exist.
@@ -261,7 +308,7 @@ function TestClassDownload:run()
   if pl.path.exists(strLocalFile)==strLocalFile and pl.path.exists(strLocalFileHash)==strLocalFileHash then
     local tResult, strMessage = self:__check_hash_sum(strLocalFile, strLocalFileHash)
     if tResult==true then
-      strHash = strMessage
+      strHash = self.__get_hash_for_file(strLocalFile, mhash.MHASH_SHA384)
     else
       -- The hash sum does not match. Remove both files.
       tLog.debug('The local file "%s" already exist, but checking the hash failed: %s', strLocalFile, strMessage)
@@ -289,7 +336,7 @@ function TestClassDownload:run()
     -- Check the hash sum of the file.
     local tResult, strMessage = self:__check_hash_sum(strLocalFile, strLocalFileHash)
     if tResult==true then
-      strHash = strMessage
+      strHash = self.__get_hash_for_file(strLocalFile, mhash.MHASH_SHA384)
     else
       local strMsg = string.format('Checking the hash for the local file "%s" failed: %s.', strLocalFile, strMessage)
       tLog.error('%s', strMsg)
