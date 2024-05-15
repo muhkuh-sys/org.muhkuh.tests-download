@@ -44,7 +44,10 @@ function TestClassDownload:__create_working_folder_if_not_present(strWorkingFold
   if pl.path.exists(strWorkingFolder)==strWorkingFolder then
     tLog.debug('The working folder "%s" exists.', strWorkingFolder)
     if pl.path.isdir(strWorkingFolder)~=true then
-      local strMsg = string.format('The working path for the download contents "%s" exists, but it is not a folder.', strWorkingFolder)
+      local strMsg = string.format(
+        'The working path for the download contents "%s" exists, but it is not a folder.',
+        strWorkingFolder
+      )
       tLog.error('%s', strMsg)
       error(strMsg)
     end
@@ -53,7 +56,11 @@ function TestClassDownload:__create_working_folder_if_not_present(strWorkingFold
     tLog.debug('The working folder "%s" does not exist. Try to create it.', strWorkingFolder)
     local tResult, strMessage = pl.dir.makepath(strWorkingFolder)
     if tResult~=true then
-      local strMsg = string.format('Failed to create the working path for the download contents "%s": %s', strWorkingFolder, tostring(strMessage))
+      local strMsg = string.format(
+        'Failed to create the working path for the download contents "%s": %s',
+        strWorkingFolder,
+        tostring(strMessage)
+      )
       tLog.error('%s', strMsg)
       error(strMsg)
     end
@@ -110,7 +117,12 @@ function TestClassDownload:__download(strUrl, strLocalFile)
   -- Collect the received data in a file.
   local tFile, strMessage = io.open(strLocalFile, 'wb')
   if tFile==nil then
-    local strMsg = string.format('Failed to download the URL "%s": the local file "%s" can not be created: %s', strUrl, strLocalFile, strMessage)
+    local strMsg = string.format(
+      'Failed to download the URL "%s": the local file "%s" can not be created: %s',
+      strUrl,
+      strLocalFile,
+      strMessage
+    )
     tLog.error('%s', strMsg)
     error(strMsg)
   end
@@ -168,7 +180,11 @@ function TestClassDownload:__check_hash_sum(strLocalFile, strLocalFileHash)
       else
         local strBasename = pl.path.basename(strLocalFile)
         if strFileCheck~=strBasename then
-          strMessage = string.format('The hash file does not contain a hash for the file "%s", but for "%s".', strBasename, strFileCheck)
+          strMessage = string.format(
+            'The hash file does not contain a hash for the file "%s", but for "%s".',
+            strBasename,
+            strFileCheck
+          )
         else
           local tState = mhash.mhash_state()
           tState:init(mhash.MHASH_SHA384)
@@ -250,7 +266,6 @@ function TestClassDownload:run()
       -- The hash sum does not match. Remove both files.
       tLog.debug('The local file "%s" already exist, but checking the hash failed: %s', strLocalFile, strMessage)
 
-      local strMessage
       tResult, strMessage = pl.file.delete(strLocalFile)
       if tResult~=true then
         local strMsg = string.format('Failed to delete the local file "%s": %s', strLocalFile, strMessage)
